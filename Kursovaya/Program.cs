@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BoatRent;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,6 +17,8 @@ namespace Kursovaya
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            UserActivityMonitor.TimeoutSeconds = 5;
+            UserActivityMonitor.Start();
             Application.Run(new Auth());
         }
     }
