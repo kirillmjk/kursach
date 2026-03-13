@@ -8,6 +8,7 @@ using MySql.Data.MySqlClient;
 using System.Drawing.Imaging;
 using System.Threading;
 using Timer = System.Windows.Forms.Timer;
+using System.Collections.Generic;
 
 namespace Kursovaya
 {
@@ -16,7 +17,15 @@ namespace Kursovaya
         private int currentUserId;
         private DataTable originalData;
         private DataTable filteredData;
+        private DataTable pagedData;
         private string connectionString = ConnectionString.GetConnectionString();
+
+        // Поля для пагинации
+        private int currentPage = 1;
+        private readonly int pageSize = 5; // Теперь 5 записей на странице и только для чтения
+        private int totalPages = 1;
+        private int totalRecords = 0;
+        private int filteredRecords = 0;
 
         // Путь к папке с изображениями в AppData
         private string imagesFolderPath;
@@ -25,6 +34,7 @@ namespace Kursovaya
         public ManagerServicesForm(int currentUserId)
         {
             InitializeComponent();
+            InitializePaginationControls();
 
             // Проверяем userId
             if (currentUserId <= 0)
@@ -44,6 +54,13 @@ namespace Kursovaya
             this.Shown += ManagerServicesForm_Shown;
         }
 
+        private void InitializePaginationControls()
+        {
+            // Настраиваем обработчики для элементов пагинации
+            btnPrevPage.Click += BtnPrevPage_Click;
+            btnNextPage.Click += BtnNextPage_Click;
+        }
+
         private void ManagerServicesForm_Shown(object sender, EventArgs e)
         {
             // Показываем сообщение о загрузке
@@ -61,7 +78,6 @@ namespace Kursovaya
 
                 // Загружаем данные
                 LoadData();
-                ApplyFilters();
 
                 Cursor = Cursors.Default;
                 lblResults.ForeColor = SystemColors.ControlText;
@@ -238,27 +254,18 @@ namespace Kursovaya
                     MessageBox.Show("Нет данных об услугах", "Информация",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     filteredData = originalData?.Clone() ?? new DataTable();
-                    dataGridView.DataSource = null;
+                    UpdatePagination();
                     return;
                 }
 
                 filteredData = originalData.Copy();
 
-                // ВАЖНО: Используем BindingSource для лучшей работы с данными
-                BindingSource bindingSource = new BindingSource();
-                bindingSource.DataSource = filteredData;
-                dataGridView.DataSource = bindingSource;
-
-                // Заполняем изображения
-                FillImageColumn();
-
-                // Настраиваем внешний вид
-                FormatDataGridViewAppearance();
-
                 // Заполняем фильтры и сортировку
                 FillFilters();
                 FillSortComboBoxes();
-                UpdateResultsCount();
+
+                // Применяем фильтры и обновляем пагинацию
+                ApplyFilters();
             }
             catch (Exception ex)
             {
@@ -303,15 +310,126 @@ namespace Kursovaya
             return dataTable;
         }
 
+        private void UpdatePagination()
+        {
+            if (filteredData == null)
+            {
+                pagedData = null;
+                dataGridView.DataSource = null;
+                return;
+            }
+
+            // Получаем отфильтрованные данные через DefaultView и применяем сортировку
+            DataView dataView = filteredData.DefaultView;
+
+            // Применяем сортировку если она есть
+            if (!string.IsNullOrEmpty(filteredData.DefaultView.Sort))
+            {
+                dataView.Sort = filteredData.DefaultView.Sort;
+            }
+
+            // Создаем DataTable из DataView для пагинации
+            DataTable sortedTable = dataView.ToTable();
+
+            totalRecords = originalData?.Rows.Count ?? 0;
+            filteredRecords = sortedTable.Rows.Count;
+
+            // Вычисляем общее количество страниц (фиксированный pageSize = 5)
+            totalPages = (int)Math.Ceiling((double)filteredRecords / pageSize);
+            if (totalPages == 0) totalPages = 1;
+
+            // Корректируем текущую страницу
+            if (currentPage > totalPages)
+                currentPage = totalPages;
+            if (currentPage < 1)
+                currentPage = 1;
+
+            // Получаем данные для текущей страницы
+            pagedData = GetPageData(sortedTable, currentPage, pageSize);
+
+            // Обновляем DataGridView
+            BindingSource bindingSource = new BindingSource();
+            bindingSource.DataSource = pagedData;
+            dataGridView.DataSource = bindingSource;
+
+            // Заполняем изображения
+            FillImageColumn();
+
+            // Обновляем информацию о пагинации
+            UpdatePaginationInfo();
+        }
+
+        private DataTable GetPageData(DataTable sourceTable, int page, int pageSize)
+        {
+            DataTable pageTable = sourceTable.Clone();
+
+            int startIndex = (page - 1) * pageSize;
+            int endIndex = Math.Min(startIndex + pageSize, sourceTable.Rows.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                pageTable.ImportRow(sourceTable.Rows[i]);
+            }
+
+            return pageTable;
+        }
+
+        private void UpdatePaginationInfo()
+        {
+            // Обновляем текстовую информацию
+            int startRecord = ((currentPage - 1) * pageSize) + 1;
+            int endRecord = Math.Min(currentPage * pageSize, filteredRecords);
+
+            lblPageInfo.Text = $"Страница {currentPage} из {totalPages}";
+            lblResults.Text = $"Показано: {startRecord}-{endRecord} из {filteredRecords} (всего: {totalRecords})";
+
+            // Обновляем состояние кнопок
+            btnPrevPage.Enabled = currentPage > 1;
+            btnNextPage.Enabled = currentPage < totalPages;
+        }
+
+        private void GoToPage(int page)
+        {
+            if (page < 1 || page > totalPages || page == currentPage)
+                return;
+
+            currentPage = page;
+            UpdatePagination();
+        }
+
+        // Обработчики событий пагинации
+        private void BtnFirstPage_Click(object sender, EventArgs e)
+        {
+            GoToPage(1);
+        }
+
+        private void BtnPrevPage_Click(object sender, EventArgs e)
+        {
+            GoToPage(currentPage - 1);
+        }
+
+        private void BtnNextPage_Click(object sender, EventArgs e)
+        {
+            GoToPage(currentPage + 1);
+        }
+
+        private void BtnLastPage_Click(object sender, EventArgs e)
+        {
+            GoToPage(totalPages);
+        }
+
+        private void TxtPageNumber_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            // Разрешаем только цифры, Backspace и Enter
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
         private void FillImageColumn()
         {
             if (dataGridView.Rows.Count == 0) return;
-
-            // Добавляем обработчик события для отображения изображений после отрисовки строк
-            dataGridView.RowPostPaint += (sender, e) =>
-            {
-                // Этот обработчик гарантирует, что изображения будут отображаться после отрисовки строк
-            };
 
             int imagesLoaded = 0;
             int imagesFailed = 0;
@@ -457,7 +575,6 @@ namespace Kursovaya
             }
         }
 
-        // Остальные методы остаются без изменений
         private void FillFilters()
         {
             if (originalData == null || originalData.Rows.Count == 0) return;
@@ -520,76 +637,56 @@ namespace Kursovaya
 
             try
             {
-                filteredData = originalData.Copy();
+                IEnumerable<DataRow> query = originalData.AsEnumerable();
 
                 string searchText = txtSearch.Text.Trim().ToLower();
                 if (!string.IsNullOrEmpty(searchText))
                 {
-                    var filteredRows = filteredData.AsEnumerable()
-                        .Where(row => row.Field<string>("BoatName").ToLower().Contains(searchText));
-
-                    if (filteredRows.Any())
-                    {
-                        filteredData = filteredRows.CopyToDataTable();
-                    }
-                    else
-                    {
-                        filteredData.Clear();
-                    }
+                    query = query.Where(row => row.Field<string>("BoatName").ToLower().Contains(searchText));
                 }
 
                 if (cmbClassFilter.SelectedIndex > 0)
                 {
                     string selectedClass = cmbClassFilter.SelectedItem.ToString();
-                    var filteredRows = filteredData.AsEnumerable()
-                        .Where(row => row.Field<string>("Class") == selectedClass);
-
-                    if (filteredRows.Any())
-                    {
-                        filteredData = filteredRows.CopyToDataTable();
-                    }
-                    else
-                    {
-                        filteredData.Clear();
-                    }
+                    query = query.Where(row => row.Field<string>("Class") == selectedClass);
                 }
 
                 if (cmbPriceFilter.SelectedIndex > 0)
                 {
                     string priceFilter = cmbPriceFilter.SelectedItem.ToString();
-                    var filteredRows = filteredData.AsEnumerable();
 
                     switch (priceFilter)
                     {
                         case "До 4000 руб":
-                            filteredRows = filteredRows.Where(row => row.Field<decimal>("Price") < 4000);
+                            query = query.Where(row => row.Field<decimal>("Price") < 4000);
                             break;
                         case "4000-8000 руб":
-                            filteredRows = filteredRows.Where(row => row.Field<decimal>("Price") >= 4000 && row.Field<decimal>("Price") <= 8000);
+                            query = query.Where(row => row.Field<decimal>("Price") >= 4000 && row.Field<decimal>("Price") <= 8000);
                             break;
                         case "8000-12000 руб":
-                            filteredRows = filteredRows.Where(row => row.Field<decimal>("Price") > 8000 && row.Field<decimal>("Price") <= 12000);
+                            query = query.Where(row => row.Field<decimal>("Price") > 8000 && row.Field<decimal>("Price") <= 12000);
                             break;
                         case "12000-18000 руб":
-                            filteredRows = filteredRows.Where(row => row.Field<decimal>("Price") > 12000 && row.Field<decimal>("Price") <= 18000);
+                            query = query.Where(row => row.Field<decimal>("Price") > 12000 && row.Field<decimal>("Price") <= 18000);
                             break;
                         case "Выше 18000 руб":
-                            filteredRows = filteredRows.Where(row => row.Field<decimal>("Price") > 18000);
+                            query = query.Where(row => row.Field<decimal>("Price") > 18000);
                             break;
-                    }
-
-                    if (filteredRows.Any())
-                    {
-                        filteredData = filteredRows.CopyToDataTable();
-                    }
-                    else
-                    {
-                        filteredData.Clear();
                     }
                 }
 
-                ApplySorting();
-                UpdateResultsCount();
+                if (query.Any())
+                {
+                    filteredData = query.CopyToDataTable();
+                }
+                else
+                {
+                    filteredData = originalData.Clone();
+                }
+
+                ApplySortingToDataTable();
+                currentPage = 1; // Сбрасываем на первую страницу при изменении фильтров
+                UpdatePagination();
             }
             catch (Exception ex)
             {
@@ -598,13 +695,9 @@ namespace Kursovaya
             }
         }
 
-        private void ApplySorting()
+        private void ApplySortingToDataTable()
         {
-            if (filteredData == null || filteredData.Rows.Count == 0)
-            {
-                dataGridView.DataSource = null;
-                return;
-            }
+            if (filteredData == null || filteredData.Rows.Count == 0) return;
 
             try
             {
@@ -615,18 +708,6 @@ namespace Kursovaya
 
                 string sortExpression = GetSortExpression(sortBy, sortOrder);
                 filteredData.DefaultView.Sort = sortExpression;
-
-                // Обновляем DataSource
-                if (dataGridView.DataSource is BindingSource bs)
-                {
-                    bs.DataSource = filteredData;
-                }
-                else
-                {
-                    dataGridView.DataSource = filteredData.DefaultView;
-                }
-
-                FillImageColumn();
             }
             catch (Exception ex)
             {
@@ -645,28 +726,6 @@ namespace Kursovaya
                 case "Класс": return $"Class {sortDirection}";
                 case "Стоимость": return $"Price {sortDirection}";
                 default: return $"BoatName {sortDirection}";
-            }
-        }
-
-        private void UpdateResultsCount()
-        {
-            try
-            {
-                int totalCount = originalData?.Rows.Count ?? 0;
-                int filteredCount = filteredData?.Rows.Count ?? 0;
-
-                if (totalCount == filteredCount)
-                {
-                    lblResults.Text = $"Всего услуг: {totalCount}";
-                }
-                else
-                {
-                    lblResults.Text = $"Показано: {filteredCount} из {totalCount}";
-                }
-            }
-            catch
-            {
-                lblResults.Text = "Ошибка подсчета";
             }
         }
 
@@ -802,16 +861,8 @@ namespace Kursovaya
             if (originalData != null)
             {
                 filteredData = originalData.Copy();
-                if (dataGridView.DataSource is BindingSource bs)
-                {
-                    bs.DataSource = filteredData;
-                }
-                else
-                {
-                    dataGridView.DataSource = filteredData.DefaultView;
-                }
-                FillImageColumn();
-                UpdateResultsCount();
+                currentPage = 1;
+                UpdatePagination();
             }
         }
 
@@ -919,12 +970,22 @@ namespace Kursovaya
 
         private void cmbSortBy_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ApplySorting();
+            if (filteredData != null)
+            {
+                ApplySortingToDataTable();
+                currentPage = 1;
+                UpdatePagination();
+            }
         }
 
         private void cmbSortOrder_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ApplySorting();
+            if (filteredData != null)
+            {
+                ApplySortingToDataTable();
+                currentPage = 1;
+                UpdatePagination();
+            }
         }
 
         private void DataGridView_CellDoubleClick(object sender, DataGridViewCellEventArgs e)

@@ -45,6 +45,9 @@
             this.btnAdd = new System.Windows.Forms.Button();
             this.btnEdit = new System.Windows.Forms.Button();
             this.btnDelete = new System.Windows.Forms.Button();
+            this.btnNextPage = new System.Windows.Forms.Button();
+            this.lblPageInfo = new System.Windows.Forms.Label();
+            this.btnPrevPage = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView)).BeginInit();
             this.SuspendLayout();
             // 
@@ -185,12 +188,12 @@
             // lblResults
             // 
             this.lblResults.AutoSize = true;
-            this.lblResults.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.lblResults.Location = new System.Drawing.Point(12, 562);
+            this.lblResults.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            this.lblResults.Location = new System.Drawing.Point(12, 565);
             this.lblResults.Name = "lblResults";
-            this.lblResults.Size = new System.Drawing.Size(113, 20);
+            this.lblResults.Size = new System.Drawing.Size(92, 17);
             this.lblResults.TabIndex = 11;
-            this.lblResults.Text = "Всего услуг: 0";
+            this.lblResults.Text = "Всего: 0 из 0";
             // 
             // btnBack
             // 
@@ -244,11 +247,48 @@
             this.btnDelete.UseVisualStyleBackColor = false;
             this.btnDelete.Click += new System.EventHandler(this.BtnDelete_Click);
             // 
+            // btnNextPage
+            // 
+            this.btnNextPage.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.btnNextPage.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnNextPage.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            this.btnNextPage.Location = new System.Drawing.Point(458, 561);
+            this.btnNextPage.Name = "btnNextPage";
+            this.btnNextPage.Size = new System.Drawing.Size(43, 25);
+            this.btnNextPage.TabIndex = 4;
+            this.btnNextPage.Text = "▶";
+            this.btnNextPage.UseVisualStyleBackColor = false;
+            // 
+            // lblPageInfo
+            // 
+            this.lblPageInfo.AutoSize = true;
+            this.lblPageInfo.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
+            this.lblPageInfo.Location = new System.Drawing.Point(325, 565);
+            this.lblPageInfo.Name = "lblPageInfo";
+            this.lblPageInfo.Size = new System.Drawing.Size(115, 17);
+            this.lblPageInfo.TabIndex = 3;
+            this.lblPageInfo.Text = "Страница 0 из 0";
+            // 
+            // btnPrevPage
+            // 
+            this.btnPrevPage.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.btnPrevPage.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnPrevPage.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            this.btnPrevPage.Location = new System.Drawing.Point(262, 561);
+            this.btnPrevPage.Name = "btnPrevPage";
+            this.btnPrevPage.Size = new System.Drawing.Size(45, 25);
+            this.btnPrevPage.TabIndex = 1;
+            this.btnPrevPage.Text = "◀";
+            this.btnPrevPage.UseVisualStyleBackColor = false;
+            // 
             // ManagerServicesForm
             // 
             this.BackColor = System.Drawing.SystemColors.AppWorkspace;
             this.ClientSize = new System.Drawing.Size(890, 604);
             this.ControlBox = false;
+            this.Controls.Add(this.lblPageInfo);
+            this.Controls.Add(this.btnPrevPage);
+            this.Controls.Add(this.btnNextPage);
             this.Controls.Add(this.btnDelete);
             this.Controls.Add(this.btnEdit);
             this.Controls.Add(this.btnAdd);
@@ -295,5 +335,8 @@
         private System.Windows.Forms.Button btnAdd;
         private System.Windows.Forms.Button btnEdit;
         private System.Windows.Forms.Button btnDelete;
+        private System.Windows.Forms.Button btnNextPage;
+        private System.Windows.Forms.Label lblPageInfo;
+        private System.Windows.Forms.Button btnPrevPage;
     }
 }
